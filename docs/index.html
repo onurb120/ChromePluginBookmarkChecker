@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Chrome Bookmark Checker</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --primary: #2563eb;
+      --border: #e2e8f0;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+    .badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      margin-bottom: 20px;
+    }
+    .updated {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+    p, ul {
+      margin-bottom: 16px;
+      font-size: 15px;
+    }
+    ul {
+      padding-left: 24px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    li strong {
+      color: #0f172a;
+    }
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <span class="badge">Legal Document</span>
+    <h1>Privacy Policy</h1>
+    <p class="updated"><strong>Chrome Bookmark Checker</strong> &bull; Last updated: September 15, 2026</p>
+
+    <p>
+      This Privacy Policy describes how the <strong>Chrome Bookmark Checker</strong> browser extension ("we", "our", or "the extension") handles user data.
+    </p>
+
+    <h2>1. Data Collection &amp; Processing</h2>
+    <p>Chrome Bookmark Checker is built with a strict <strong>privacy-first</strong> approach:</p>
+    <ul>
+      <li><strong>Zero Personal Data Collection:</strong> The extension does not collect, record, log, or sell any personal data, account information, or browsing history.</li>
+      <li><strong>100% Local Processing:</strong> All bookmark scanning, duplicate URL detection, and URL normalization run exclusively inside your local browser instance.</li>
+      <li><strong>Direct Link Verification:</strong> When verifying whether a bookmark is alive or broken, the extension sends standard HTTP requests (<code>HEAD</code> / <code>GET</code>) directly from your browser to the bookmark's destination web server. No intermediary servers, third-party analytics, or proxies are used.</li>
+      <li><strong>Local Preferences Only:</strong> Any state or configuration is stored on your device using Chrome's <code>chrome.storage.local</code> API and is never transmitted off your machine.</li>
+    </ul>
+
+    <h2>2. Permissions Justification</h2>
+    <ul>
+      <li><code>bookmarks</code>: Required strictly to read your saved bookmark tree to identify dead links and duplicate URLs. The extension does not alter your bookmarks without your explicit action.</li>
+      <li><code>storage</code>: Required solely to save scan progress and user preferences locally.</li>
+      <li><code>&lt;all_urls&gt;</code>: Required to send HTTP verification requests to arbitrary web endpoints corresponding to your saved bookmarks to test link connectivity.</li>
+    </ul>
+
+    <h2>3. Third-Party Sharing</h2>
+    <p>
+      We do not sell, rent, monetize, or transmit any user data or bookmarks to third parties, advertising networks, or tracking services.
+    </p>
+
+    <h2>4. Single Purpose Compliance</h2>
+    <p>
+      The extension adheres strictly to the Google Chrome Web Store Single Purpose Policy: its sole function is to help users scan, validate, and clean up their saved browser bookmarks.
+    </p>
+
+    <h2>5. Contact &amp; Source Code</h2>
+    <p>
+      For questions, support, or bug reports, please visit our official repository:
+      <a href="https://github.com/onurb120/ChromePluginBookmarkChecker" target="_blank" rel="noopener noreferrer">
+        GitHub - onurb120/ChromePluginBookmarkChecker
+      </a>.
+    </p>
+
+    <footer>
+      &copy; 2026 Chrome Bookmark Checker &bull; Open Source under the MIT License
+    </footer>
+  </div>
+</body>
+</html>
