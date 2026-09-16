@@ -1,0 +1,34 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in Chrome Bookmark Checker
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue!
+        **Note:** If you are reporting a security vulnerability, please do NOT use this public form. Use [Private Vulnerability Reporting](https://github.com/onurb120/ChromePluginBookmarkChecker/security/advisories/new) instead.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Open extension popup / dashboard
+        2. Click '...'
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: browser-version
+    attributes:
+      label: Chrome Version & OS
+      placeholder: e.g. Chrome 128 / Windows 11 / macOS 14
+    validations:
+      required: true

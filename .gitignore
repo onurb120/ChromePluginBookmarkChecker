@@ -9,7 +9,7 @@ desktop.ini
 *.swp
 *.swo
 
-# Node & Build artifacts (if dependencies are added later)
+# Node & Build artifacts
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -17,7 +17,21 @@ yarn-error.log*
 dist/
 build/
 
+# Extension packages & credentials
+*.crx
+*.zip
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+
+# Environment and secrets
+.env
+.env.*
+.env.local
+.env*.local
+
 # Temporary / Scratch files
 *.log
-.env
-.env.local
