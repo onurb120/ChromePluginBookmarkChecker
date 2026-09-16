@@ -1,0 +1,38 @@
+{
+  "name": "chrome-bookmark-checker",
+  "version": "1.0.1",
+  "description": "A Google Chrome Extension (Manifest V3) for checking, managing, and cleaning up bookmarks. It scans your browser bookmarks to detect broken links, 404 errors, redirects, and duplicate entries.",
+  "main": "background.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/onurb120/ChromePluginBookmarkChecker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/onurb120/ChromePluginBookmarkChecker/issues"
+  },
+  "homepage": "https://github.com/onurb120/ChromePluginBookmarkChecker#readme",
+  "dependencies": {
+    "lucide-react": "^1.46.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.33",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "autoprefixer": "^10.6.1",
+    "jimp": "^1.6.1",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.0"
+  }
+}
