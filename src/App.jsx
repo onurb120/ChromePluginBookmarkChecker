@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import appLogo from '../assets/icons/icon48.png';
 
 function App() {
   const [folders, setFolders] = useState([]);
@@ -218,7 +219,7 @@ function App() {
       <header className="bg-surface-container border-b border-outline-variant/30 w-full flex items-center justify-between px-margin py-space-xs shrink-0 select-none h-11">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-surface-container flex items-center justify-center shadow-sm overflow-hidden border border-outline-variant/30">
-            <img src="/icons/icon48.png" alt="logo" className="w-full h-full object-contain" />
+            <img src={appLogo} alt="logo" className="w-full h-full object-contain" />
           </div>
           <span className="text-[13px] font-semibold text-on-surface tracking-tight">Chrome Bookmark Checker</span>
           <span className="bg-surface-variant text-primary font-mono text-[9px] px-1.5 py-0.5 rounded tracking-wide font-medium border border-outline-variant/40">v1.0.1</span>

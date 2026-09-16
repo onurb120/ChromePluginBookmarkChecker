@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import appLogo from '../assets/icons/icon48.png';
 
 export default function DashboardApp() {
   const [results, setResults] = useState({ deadLinks: [], duplicateLinks: [], timestamp: null });
@@ -263,7 +264,7 @@ export default function DashboardApp() {
         <div className="flex items-center gap-6">
           <div className="font-semibold text-on-surface tracking-tight flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center shadow-sm overflow-hidden border border-outline-variant/30">
-              <img src="/icons/icon48.png" alt="logo" className="w-full h-full object-contain" />
+              <img src={appLogo} alt="logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-[18px] font-bold text-on-surface">Chrome Bookmark Checker</span>
             <span className="bg-surface-container-high border border-outline-variant/30 text-on-surface-variant font-mono text-[10px] px-1.5 py-0.5 rounded ml-1">v1.0.1</span>
