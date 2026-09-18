@@ -25,19 +25,52 @@ function App() {
         countUrls(tree);
         setTotalBookmarksCount(count);
 
-        const rootNodes = tree[0].children || [];
-        const topLevelFolders = [];
-        rootNodes.forEach(root => {
-          if (root.children) {
-            root.children.forEach(node => {
-              if (node.children) { // folder
-                topLevelFolders.push({ id: node.id, title: node.title });
+        const rootNodes = tree[0]?.children || [];
+        const detectedFolders = [];
+
+        const traverse = (node, parentPath) => {
+          if (!node.children) return;
+
+          const hasDirectBookmarks = node.children.some(c => c.url);
+          const subfolders = node.children.filter(c => c.children);
+          const isRoot = node.parentId === '0' || ['1', '2', '3'].includes(node.id);
+
+          if (isRoot) {
+            const rootTitle = node.title || (node.id === '1' ? 'Bookmarks Bar' : node.id === '2' ? 'Other Bookmarks' : 'Mobile Bookmarks');
+            if (subfolders.length === 0) {
+              // Root node with direct bookmarks or empty
+              if (hasDirectBookmarks || rootNodes.length <= 3) {
+                detectedFolders.push({ id: node.id, title: rootTitle });
               }
-            });
+            } else {
+              // Root node has subfolders
+              if (hasDirectBookmarks) {
+                detectedFolders.push({ id: node.id, title: `${rootTitle} (Root Items)` });
+              }
+              subfolders.forEach(sub => traverse(sub, rootTitle));
+            }
+          } else {
+            // Nested subfolder
+            const currentPath = parentPath ? `${parentPath} / ${node.title}` : node.title;
+            detectedFolders.push({ id: node.id, title: currentPath });
+            subfolders.forEach(sub => traverse(sub, currentPath));
           }
-        });
-        setFolders(topLevelFolders);
-        setSelectedFolders(new Set(topLevelFolders.map(f => f.id)));
+        };
+
+        rootNodes.forEach(root => traverse(root, ''));
+
+        // Fallback: if no folders detected at all, default to root nodes
+        if (detectedFolders.length === 0) {
+          rootNodes.forEach(root => {
+            detectedFolders.push({
+              id: root.id,
+              title: root.title || (root.id === '1' ? 'Bookmarks Bar' : 'Other Bookmarks')
+            });
+          });
+        }
+
+        setFolders(detectedFolders);
+        setSelectedFolders(new Set(detectedFolders.map(f => f.id)));
       });
       
       // Load previous scan results if any
@@ -45,10 +78,11 @@ function App() {
         if (data.lastScanResults) setScanResults(data.lastScanResults);
       });
     } else {
-      // Fallback
+      // Fallback for local development
       const fallback = [
-        { id: '1', title: 'Work & Projects' },
-        { id: '2', title: 'To Read / Research' }
+        { id: '1', title: 'Bookmarks Bar' },
+        { id: '2', title: 'Work & Projects' },
+        { id: '3', title: 'To Read / Research' }
       ];
       setFolders(fallback);
       setSelectedFolders(new Set(fallback.map(f => f.id)));
@@ -84,8 +118,17 @@ function App() {
   }, []);
 
   const handleStartScan = () => {
-    if (selectedFolders.size === 0) {
-      alert("Please select at least one folder to scan.");
+    const foldersToScan = selectedFolders.size > 0 
+      ? Array.from(selectedFolders) 
+      : folders.map(f => f.id);
+
+    if (foldersToScan.length === 0 && totalBookmarksCount > 0) {
+      // Ultimate fallback: scan default root IDs
+      foldersToScan.push('1', '2');
+    }
+
+    if (foldersToScan.length === 0) {
+      alert("No bookmarks or folders available to scan.");
       return;
     }
     
@@ -97,7 +140,7 @@ function App() {
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
       chrome.runtime.sendMessage({ 
         action: 'START_SCAN', 
-        selectedFolders: Array.from(selectedFolders)
+        selectedFolders: foldersToScan
       });
     } else {
       // Simulate progress for testing locally without extension context
@@ -222,7 +265,7 @@ function App() {
             <img src={appLogo} alt="logo" className="w-full h-full object-contain" />
           </div>
           <span className="text-[13px] font-semibold text-on-surface tracking-tight">Chrome Bookmark Checker</span>
-          <span className="bg-surface-variant text-primary font-mono text-[9px] px-1.5 py-0.5 rounded tracking-wide font-medium border border-outline-variant/40">v1.0.1</span>
+          <span className="bg-surface-variant text-primary font-mono text-[9px] px-1.5 py-0.5 rounded tracking-wide font-medium border border-outline-variant/40">v1.0.2</span>
         </div>
         <div className="flex items-center gap-1">
           <button 

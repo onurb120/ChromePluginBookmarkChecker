@@ -34,26 +34,45 @@ async function createBackup() {
 // Fetch all bookmarks inside the selected folders
 async function getBookmarksFromFolders(folderIds) {
   let allBookmarks = [];
+  const visitedIds = new Set();
+  const idsToProcess = Array.isArray(folderIds) && folderIds.length > 0 ? folderIds : ['1', '2'];
   
-  for (const id of folderIds) {
-    const subTree = await new Promise(resolve => chrome.bookmarks.getSubTree(id, resolve));
-    // Root of subtree is a folder
-    const stack = [{ node: subTree[0], path: subTree[0].title || '' }];
-    
-    while (stack.length > 0) {
-      const { node, path } = stack.pop();
-      if (node.url) {
-        // filter out javascript:, chrome://, data:, etc.
-        if (node.url.startsWith('http://') || node.url.startsWith('https://')) {
-          allBookmarks.push({ ...node, folderPath: path });
+  for (const id of idsToProcess) {
+    try {
+      const subTree = await new Promise(resolve => {
+        chrome.bookmarks.getSubTree(id, (res) => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            console.warn('Error fetching subtree for folder', id, chrome.runtime.lastError);
+            resolve([]);
+          } else {
+            resolve(res || []);
+          }
+        });
+      });
+
+      if (!subTree || !subTree[0]) continue;
+
+      // Root of subtree is a folder
+      const stack = [{ node: subTree[0], path: subTree[0].title || '' }];
+      
+      while (stack.length > 0) {
+        const { node, path } = stack.pop();
+        if (node.url && !visitedIds.has(node.id)) {
+          // filter out javascript:, chrome://, data:, etc.
+          if (node.url.startsWith('http://') || node.url.startsWith('https://')) {
+            visitedIds.add(node.id);
+            allBookmarks.push({ ...node, folderPath: path });
+          }
+        }
+        if (node.children) {
+          node.children.forEach(child => {
+            const childPath = child.children ? (path ? `${path} / ${child.title}` : child.title) : path;
+            stack.push({ node: child, path: childPath });
+          });
         }
       }
-      if (node.children) {
-        node.children.forEach(child => {
-          const childPath = child.children ? (path ? `${path} / ${child.title}` : child.title) : path;
-          stack.push({ node: child, path: childPath });
-        });
-      }
+    } catch (err) {
+      console.error('Error in getBookmarksFromFolders for id:', id, err);
     }
   }
   return allBookmarks;

@@ -1,6 +1,6 @@
 {
   "name": "chrome-bookmark-checker",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A Google Chrome Extension (Manifest V3) for checking, managing, and cleaning up bookmarks. It scans your browser bookmarks to detect broken links, 404 errors, redirects, and duplicate entries.",
   "main": "background.js",
   "type": "module",

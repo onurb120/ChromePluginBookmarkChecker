@@ -267,7 +267,7 @@ export default function DashboardApp() {
               <img src={appLogo} alt="logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-[18px] font-bold text-on-surface">Chrome Bookmark Checker</span>
-            <span className="bg-surface-container-high border border-outline-variant/30 text-on-surface-variant font-mono text-[10px] px-1.5 py-0.5 rounded ml-1">v1.0.1</span>
+            <span className="bg-surface-container-high border border-outline-variant/30 text-on-surface-variant font-mono text-[10px] px-1.5 py-0.5 rounded ml-1">v1.0.2</span>
           </div>
         </div>
         
