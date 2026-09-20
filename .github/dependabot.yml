@@ -1,19 +1,24 @@
 version: 2
 updates:
-  # Maintain dependencies for npm daily
+  # Maintain dependencies for npm weekly on Mondays
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "monday"
     open-pull-requests-limit: 10
     commit-message:
       prefix: "chore(deps)"
 
-  # Maintain GitHub Actions dependencies weekly
+  # Maintain GitHub Actions dependencies weekly on Mondays
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(actions)"
+    groups:
+      github-actions-dependencies:
+        patterns: ["*"]
