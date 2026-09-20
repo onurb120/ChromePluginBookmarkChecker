@@ -1,3 +1,9 @@
+import {
+  classifyHttpStatus,
+  classifyError,
+  extractBookmarksFromTree
+} from './utils/bookmarkUtils.js';
+
 // Background Service Worker
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -52,25 +58,8 @@ async function getBookmarksFromFolders(folderIds) {
 
       if (!subTree || !subTree[0]) continue;
 
-      // Root of subtree is a folder
-      const stack = [{ node: subTree[0], path: subTree[0].title || '' }];
-      
-      while (stack.length > 0) {
-        const { node, path } = stack.pop();
-        if (node.url && !visitedIds.has(node.id)) {
-          // filter out javascript:, chrome://, data:, etc.
-          if (node.url.startsWith('http://') || node.url.startsWith('https://')) {
-            visitedIds.add(node.id);
-            allBookmarks.push({ ...node, folderPath: path });
-          }
-        }
-        if (node.children) {
-          node.children.forEach(child => {
-            const childPath = child.children ? (path ? `${path} / ${child.title}` : child.title) : path;
-            stack.push({ node: child, path: childPath });
-          });
-        }
-      }
+      const extracted = extractBookmarksFromTree(subTree[0], visitedIds);
+      allBookmarks = allBookmarks.concat(extracted);
     } catch (err) {
       console.error('Error in getBookmarksFromFolders for id:', id, err);
     }
@@ -101,24 +90,10 @@ async function checkUrl(url) {
     }
     
     clearTimeout(timeoutId);
-    
-    // Status interpretation:
-    // 200-399: OK / Redirect
-    // 401, 403: Alive (Protected / Login Required, not a broken link!)
-    if (response.ok || response.status < 400 || response.status === 401 || response.status === 403) {
-      return { isDead: false, statusText: 'OK' };
-    }
-    
-    return {
-      isDead: true,
-      statusText: response.status === 404 ? 'HTTP 404 Not Found' : response.status === 410 ? 'HTTP 410 Gone' : `HTTP ${response.status}`
-    };
+    return classifyHttpStatus(response.status);
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      return { isDead: true, statusText: 'Timeout (12s)' };
-    }
-    return { isDead: true, statusText: 'Network / DNS Error' };
+    return classifyError(error);
   }
 }
 
