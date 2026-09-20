@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/onurb120/ChromePluginBookmarkChecker#readme",
   "dependencies": {
-    "lucide-react": "^1.46.0",
+    "lucide-react": "^1.47.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
