@@ -40,15 +40,15 @@ A Google Chrome Extension (Manifest V3) for checking, managing, and cleaning up 
 4. Enable **Developer mode** using the toggle switch in the top-right corner.
 5. Click **Load unpacked** and select the extracted folder containing `manifest.json`.
 
-## Packaging & Publishing to Chrome Web Store
+## Packaging & Distribution
 
 1. Run the automated packaging script in PowerShell:
    ```powershell
    .\package_extension.ps1
    ```
 2. The deployment-ready archive will be generated at `dist/chrome-bookmark-checker.zip`.
-3. Follow the complete publishing walkthrough in [CHROME_STORE_GUIDE.md](CHROME_STORE_GUIDE.md).
-4. Review the required [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for Google store submission.
+3. Upload the generated zip archive to the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
+4. Review [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for Google store submission requirements.
 
 ## Permissions
 
