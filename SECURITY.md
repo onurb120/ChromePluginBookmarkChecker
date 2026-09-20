@@ -33,7 +33,7 @@ We will acknowledge receipt within 48 hours and provide an estimated timeline fo
 ## Dependency & Supply Chain Security Standards
 
 To protect against supply chain attacks:
-1. **Automated Daily Audits:** Automated GitHub Dependabot scans run daily (`.github/dependabot.yml`) to detect known CVEs in third-party packages.
+1. **Automated Weekly Audits:** Automated GitHub Dependabot scans run weekly (`.github/dependabot.yml`) to detect known CVEs in third-party packages.
 2. **Audit Verification:** All dependency additions and updates must pass `npm audit` with zero high or critical vulnerabilities prior to release.
 3. **Reproducible Builds:** The `package-lock.json` file is strictly committed and enforced via `npm ci` during builds to avoid compromised upstream package drift.
 
