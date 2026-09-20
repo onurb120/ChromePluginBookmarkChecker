@@ -78,18 +78,20 @@ The following pipeline illustrates how bookmarks are retrieved, verified concurr
 
 ```mermaid
 flowchart TD
-    A[User Triggers Scan] --> B[Chrome Bookmarks API]
-    B --> C[Traverse & Flatten Bookmark Tree]
-    C --> D[Deduplication Engine<br/><i>URL Normalization & Hash Match</i>]
-    C --> E[Concurrent HTTP Worker Queue]
-    E --> F[HTTP HEAD Reachability Check]
-    F -->|Blocked / 405| G[Fallback HTTP GET Request]
-    F -->|HTTP 200-299| H[Active / Alive]
-    F -->|HTTP 404 / 50x / Timeout| I[Broken / Dead Link]
+    A["User Triggers Scan"] --> B["Chrome Bookmarks API"]
+    B --> C["Traverse & Flatten Bookmark Tree"]
+    C --> D["Deduplication Engine (URL Normalization & Hash Match)"]
+    C --> E["Concurrent HTTP Worker Queue"]
+    E --> F["HTTP HEAD Reachability Check"]
+    F -->|"Blocked or 405"| G["Fallback HTTP GET Request"]
+    F -->|"HTTP 200-299"| H["Active / Alive"]
+    F -->|"HTTP 404 / 50x / Timeout"| I["Broken / Dead Link"]
     G --> H
     G --> I
-    D --> J[Duplicate Groups]
-    H & I & J --> K[Real-time Reactive UI<br/><i>Popup & Dashboard</i>]
+    D --> J["Duplicate Groups"]
+    H --> K["Real-time Reactive UI (Popup & Dashboard)"]
+    I --> K
+    J --> K
 ```
 
 ---
