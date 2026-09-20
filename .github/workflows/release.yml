@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify dependency security
+        run: npm audit --audit-level=high
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Package extension archive
+        run: |
+          cd dist
+          zip -r ../chrome-bookmark-checker-${{ github.ref_name }}.zip ./*
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: chrome-bookmark-checker-${{ github.ref_name }}.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
