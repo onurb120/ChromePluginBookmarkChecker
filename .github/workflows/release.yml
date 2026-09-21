@@ -43,7 +43,7 @@ jobs:
           cd ..
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: chrome-bookmark-checker-${{ github.ref_name }}.zip
           generate_release_notes: true
