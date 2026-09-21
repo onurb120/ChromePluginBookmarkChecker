@@ -49,7 +49,7 @@
 
 ---
 
-## 🏗️ Architecture
+## 🏗 Architecture
 
 The extension is powered by **Vite** with `@crxjs/vite-plugin` and **React 19**, structured into clear, decoupled components:
 
@@ -75,7 +75,7 @@ ChromePluginBookmarkChecker/
 
 ---
 
-## ⚙️ How It Works
+## ⚙ How It Works
 
 The following pipeline illustrates how bookmarks are retrieved, verified concurrently, and classified without transmitting any data externally:
 
