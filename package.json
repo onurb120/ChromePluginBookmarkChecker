@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "package": "npm run build && powershell -ExecutionPolicy Bypass -File ./scripts/package_extension.ps1",
     "test": "vitest run"
   },
   "repository": {

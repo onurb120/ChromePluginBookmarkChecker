@@ -145,9 +145,11 @@ flowchart TD
 
 To create a clean, compliant distribution package for the Chrome Web Store:
 
-1. Run the automated PowerShell packager:
-   ```powershell
-   .\package_extension.ps1
+1. Run the automated packager:
+   ```bash
+   npm run package
+   # or directly:
+   .\scripts\package_extension.ps1
    ```
 2. The standalone ZIP is generated at:
    ```text
@@ -197,9 +199,9 @@ Chrome does not provide a native trash/undo API for bookmarks. For safety, it is
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please check out our [Contributing Guidelines](CONTRIBUTING.md) and adhere to the [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are welcome! Please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) and adhere to the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
-For vulnerability reports, please review our [Security Policy](SECURITY.md).
+For vulnerability reports, please review our [Security Policy](.github/SECURITY.md).
 
 ---
 

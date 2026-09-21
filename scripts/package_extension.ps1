@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = $PSScriptRoot
+$ProjectRoot = (Resolve-Path "$PSScriptRoot\..").Path
 $DistDir = Join-Path $ProjectRoot "dist"
 $ZipName = "chrome-bookmark-checker.zip"
 $ZipPath = Join-Path $DistDir $ZipName

@@ -17,4 +17,4 @@ These instructions apply to any AI pair programmer or autonomous coding agent wo
 - Keep manifest permissions to the bare minimum required for functionality.
 
 ## 4. Packaging & Artifacts
-- The production distribution ZIP must be built using `package_extension.ps1` to ensure `manifest.json` is at the archive root and no development artifacts (`node_modules/`, `docs/`, `src/`, `.git/`) are bundled.
+- The production distribution ZIP must be built using `scripts/package_extension.ps1` (or `npm run package`) to ensure `manifest.json` is at the archive root and no development artifacts (`node_modules/`, `docs/`, `src/`, `.git/`) are bundled.
