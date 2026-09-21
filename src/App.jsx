@@ -332,11 +332,15 @@ function App() {
                      Found <span className="text-error font-mono font-bold">{scanResults.deadLinks.length}</span> dead links and <span className="text-emerald-400 font-mono font-bold">{scanResults.duplicateLinks.length}</span> duplicates.
                    </div>
                    <div className="flex gap-2 pt-0.5">
-                     <button onClick={() => {
-                        if (typeof chrome !== 'undefined' && chrome.tabs) {
-                          chrome.tabs.create({ url: 'dashboard.html' });
-                        }
-                     }} className="flex-1 h-7 rounded-lg bg-primary-container text-on-primary-container hover:opacity-90 transition-opacity text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer">
+                      <button onClick={() => {
+                         if (typeof chrome !== 'undefined') {
+                           if (chrome.runtime?.openOptionsPage) {
+                             chrome.runtime.openOptionsPage();
+                           } else if (chrome.tabs) {
+                             chrome.tabs.create({ url: chrome.runtime?.getURL('src/dashboard.html') || 'src/dashboard.html' });
+                           }
+                         }
+                      }} className="flex-1 h-7 rounded-lg bg-primary-container text-on-primary-container hover:opacity-90 transition-opacity text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer">
                        <span className="material-symbols-outlined text-[13px]">open_in_new</span>
                        Open Dashboard
                      </button>

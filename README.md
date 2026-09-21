@@ -56,14 +56,17 @@ The extension is powered by **Vite** with `@crxjs/vite-plugin` and **React 19**,
 ```text
 ChromePluginBookmarkChecker/
 ├── manifest.json              # Chrome Extension Manifest V3 configuration
-├── package_extension.ps1      # Automated store-ready production ZIP packager
+├── scripts/
+│   └── package_extension.ps1  # Automated store-ready production ZIP packager
 ├── src/
-│   ├── main.jsx               # Quick Popup entry point (loads index.html)
+│   ├── index.html             # Quick Popup HTML container
+│   ├── main.jsx               # Quick Popup React entry point
 │   ├── App.jsx                # Popup UI layout and compact scan controls
-│   ├── dashboard.jsx          # Options page entry point (loads dashboard.html)
+│   ├── dashboard.html         # Full-page Dashboard HTML container
+│   ├── dashboard.jsx          # Dashboard React entry point
 │   ├── DashboardApp.jsx       # Full-screen dashboard with filtering table
 │   ├── background.js          # Service worker for background scheduling & alarms
-│   ├── index.css              # Tailwind CSS utility layers and theme definitions
+│   ├── index.css              # Tailwind CSS v4 layers and theme definitions
 │   └── utils/
 │       └── bookmarkUtils.js   # Link checking, normalization & deduplication algorithms
 └── tests/

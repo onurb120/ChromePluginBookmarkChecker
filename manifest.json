@@ -12,14 +12,14 @@
     "<all_urls>"
   ],
   "action": {
-    "default_popup": "index.html",
+    "default_popup": "src/index.html",
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "48": "assets/icons/icon48.png",
       "128": "assets/icons/icon128.png"
     }
   },
-  "options_page": "dashboard.html",
+  "options_page": "src/dashboard.html",
   "background": {
     "service_worker": "src/background.js",
     "type": "module"
