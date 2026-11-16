@@ -265,7 +265,7 @@ function App() {
             <img src={appLogo} alt="logo" className="w-full h-full object-contain" />
           </div>
           <span className="text-[13px] font-semibold text-on-surface tracking-tight">Chrome Bookmark Checker</span>
-          <span className="bg-surface-variant text-primary font-mono text-[9px] px-1.5 py-0.5 rounded tracking-wide font-medium border border-outline-variant/40">v1.0.2</span>
+          <span className="bg-surface-variant text-primary font-mono text-[9px] px-1.5 py-0.5 rounded tracking-wide font-medium border border-outline-variant/40">v1.0.3</span>
         </div>
         <div className="flex items-center gap-1">
           <button 

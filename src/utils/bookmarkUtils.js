@@ -256,7 +256,7 @@ export async function checkBookmarkUrl(url, options = {}) {
  * @param {{ tab?: string, scanTimestamp?: string|null, extensionVersion?: string }} [options]
  * @returns {Object}
  */
-export function buildDebugExportPayload(items, { tab = 'dead', scanTimestamp = null, extensionVersion = '1.0.2' } = {}) {
+export function buildDebugExportPayload(items, { tab = 'dead', scanTimestamp = null, extensionVersion = '1.0.3' } = {}) {
   const safeItems = Array.isArray(items) ? items : [];
   return {
     exportedAt: new Date().toISOString(),
