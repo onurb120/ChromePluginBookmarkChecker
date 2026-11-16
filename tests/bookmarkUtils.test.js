@@ -1,8 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   isValidBookmarkUrl,
   classifyHttpStatus,
   classifyError,
+  isSoftAlive404Html,
+  checkBookmarkUrl,
+  buildDebugExportPayload,
+  formatDebugExportForClipboard,
+  BROWSER_NAVIGATION_HEADERS,
   extractBookmarksFromTree,
   findDuplicates
 } from '../src/utils/bookmarkUtils.js';
@@ -158,7 +163,7 @@ describe('bookmarkUtils', () => {
   });
 
   describe('findDuplicates', () => {
-    it('detects duplicate bookmarks based on exact URL matches', () => {
+    it('returns both original and duplicate bookmark locations grouped by URL', () => {
       const sampleBookmarks = [
         { id: '1', title: 'A', url: 'https://example.com' },
         { id: '2', title: 'B', url: 'https://other.com' },
@@ -166,8 +171,29 @@ describe('bookmarkUtils', () => {
       ];
 
       const { duplicates, uniqueCount } = findDuplicates(sampleBookmarks);
-      expect(duplicates.length).toBe(1);
-      expect(duplicates[0].id).toBe('3');
+      expect(duplicates.length).toBe(2);
+      expect(duplicates[0]).toMatchObject({ id: '1', isOriginal: true });
+      expect(duplicates[1]).toMatchObject({ id: '3', isOriginal: false });
+      expect(uniqueCount).toBe(2);
+    });
+
+    it('groups multiple duplicates of the same URL together in order', () => {
+      const sampleBookmarks = [
+        { id: '1', title: 'A1', url: 'https://a.com' },
+        { id: '2', title: 'B1', url: 'https://b.com' },
+        { id: '3', title: 'A2', url: 'https://a.com' },
+        { id: '4', title: 'B2', url: 'https://b.com' },
+        { id: '5', title: 'A3', url: 'https://a.com' }
+      ];
+
+      const { duplicates, uniqueCount } = findDuplicates(sampleBookmarks);
+      expect(duplicates.map(d => [d.id, d.isOriginal])).toEqual([
+        ['1', true],
+        ['3', false],
+        ['5', false],
+        ['2', true],
+        ['4', false]
+      ]);
       expect(uniqueCount).toBe(2);
     });
 
@@ -180,6 +206,282 @@ describe('bookmarkUtils', () => {
       const { duplicates, uniqueCount } = findDuplicates(sampleBookmarks);
       expect(duplicates.length).toBe(0);
       expect(uniqueCount).toBe(2);
+    });
+  });
+
+  describe('isSoftAlive404Html', () => {
+    it('detects live SPA shell with menu prices containing 404 as alive', () => {
+      const html = '<!doctype html><html><head><title>orōro Sushi Bar - Menü</title></head><body><div id="root">...404 TL...</div><script src="/app.js"></script></body></html>';
+      expect(isSoftAlive404Html(html)).toBe(true);
+    });
+
+    it('detects meta refresh redirect as alive', () => {
+      const html = '<html><head><meta http-equiv="refresh" content="0;url=/menu"></head><body></body></html>';
+      expect(isSoftAlive404Html(html)).toBe(true);
+    });
+
+    it('returns false for real 404 English and Turkish error pages', () => {
+      expect(isSoftAlive404Html('<html><head><title>404 Not Found</title></head><body><div id="root"></div></body></html>')).toBe(false);
+      expect(isSoftAlive404Html('<html><head><title>Site</title></head><body><div id="root"><h1>Sayfa Bulunamadı</h1></div></body></html>')).toBe(false);
+      expect(isSoftAlive404Html('<html><head><title>Site</title></head><body><div id="root"><p>Hata 404: Aradığınız sayfa mevcut değil.</p></div></body></html>')).toBe(false);
+      expect(isSoftAlive404Html('')).toBe(false);
+    });
+  });
+
+  describe('checkBookmarkUrl', () => {
+    const makeResponse = ({ ok, status, url = '', redirected = false, headers = {}, text = '' }) => ({
+      ok,
+      status,
+      url,
+      redirected,
+      headers: {
+        get: (name) => headers[name.toLowerCase()] ?? null
+      },
+      text: async () => text,
+      body: {
+        cancel: vi.fn().mockResolvedValue(undefined)
+      }
+    });
+
+    it('falls back from HEAD 404 to GET 200 and returns alive (ororo.com.tr/menu case)', async () => {
+      const fetchMock = vi.fn(async (_url, init) => {
+        if (init.method === 'HEAD') {
+          return makeResponse({ ok: false, status: 404, url: 'https://www.ororo.com.tr/menu' });
+        }
+        return makeResponse({
+          ok: true,
+          status: 200,
+          url: 'https://www.ororo.com.tr/menu',
+          headers: { 'content-type': 'text/html; charset=utf-8' }
+        });
+      });
+
+      const result = await checkBookmarkUrl('https://www.ororo.com.tr/menu', { fetchFn: fetchMock });
+
+      expect(result).toMatchObject({ isDead: false, statusText: 'OK' });
+      expect(result.diagnostics).toMatchObject({
+        headStatus: 404,
+        headError: null,
+        getStatus: 200,
+        getError: null,
+        finalUrl: 'https://www.ororo.com.tr/menu',
+        redirected: false,
+        contentType: 'text/html; charset=utf-8',
+        softAlive404: false,
+        usedNoCorsFallback: false
+      });
+      expect(typeof result.diagnostics.checkedAt).toBe('string');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock.mock.calls[0][1].method).toBe('HEAD');
+      expect(fetchMock.mock.calls[0][1].headers).toEqual(BROWSER_NAVIGATION_HEADERS);
+      expect(fetchMock.mock.calls[1][1].method).toBe('GET');
+      expect(fetchMock.mock.calls[1][1].headers).toEqual(BROWSER_NAVIGATION_HEADERS);
+    });
+
+    it('falls back from HEAD 500 to GET 200 and returns alive', async () => {
+      const fetchMock = vi.fn(async (_url, init) => {
+        if (init.method === 'HEAD') {
+          return makeResponse({ ok: false, status: 500 });
+        }
+        return makeResponse({ ok: true, status: 200, headers: { 'content-type': 'application/pdf' } });
+      });
+
+      const result = await checkBookmarkUrl('https://example.com/pdf', { fetchFn: fetchMock });
+
+      expect(result).toMatchObject({ isDead: false, statusText: 'OK' });
+      expect(result.diagnostics).toMatchObject({
+        headStatus: 500,
+        getStatus: 200,
+        contentType: 'application/pdf'
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('treats a live SPA shell returned with HTTP 404 on GET as alive', async () => {
+      const spaHtml = '<html><head><title>orōro Sushi Bar - Menü</title></head><body><div id="root">...404 TL...</div><script src="/app.js"></script></body></html>';
+      const fetchMock = vi.fn(async () =>
+        makeResponse({
+          ok: false,
+          status: 404,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+          text: spaHtml
+        })
+      );
+
+      const result = await checkBookmarkUrl('https://www.ororo.com.tr/menu', { fetchFn: fetchMock });
+
+      expect(result).toMatchObject({ isDead: false, statusText: 'OK' });
+      expect(result.diagnostics).toMatchObject({
+        headStatus: 404,
+        getStatus: 404,
+        softAlive404: true,
+        usedNoCorsFallback: false
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('marks genuine 404 responses (English and Turkish) as dead', async () => {
+      const fetchEnglish404 = vi.fn(async () =>
+        makeResponse({
+          ok: false,
+          status: 404,
+          headers: { 'content-type': 'text/html' },
+          text: '<html><head><title>404 Not Found</title></head><body><h1>Not Found</h1></body></html>'
+        })
+      );
+      expect(await checkBookmarkUrl('https://example.com/missing', { fetchFn: fetchEnglish404 })).toMatchObject({
+        isDead: true,
+        statusText: 'HTTP 404 Not Found',
+        diagnostics: {
+          headStatus: 404,
+          getStatus: 404,
+          softAlive404: false
+        }
+      });
+
+      const fetchTurkish404 = vi.fn(async () =>
+        makeResponse({
+          ok: false,
+          status: 404,
+          headers: { 'content-type': 'text/html' },
+          text: '<html><head><title>Hata</title></head><body><div id="root"><h1>Sayfa Bulunamadı</h1></div></body></html>'
+        })
+      );
+      expect(await checkBookmarkUrl('https://example.com/yok', { fetchFn: fetchTurkish404 })).toMatchObject({
+        isDead: true,
+        statusText: 'HTTP 404 Not Found',
+        diagnostics: {
+          headStatus: 404,
+          getStatus: 404,
+          softAlive404: false
+        }
+      });
+    });
+
+    it('handles timeouts as Timeout (12s) and DNS/network failures as Network / DNS Error', async () => {
+      const abortFetch = vi.fn(async (_url, init) => {
+        return new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => {
+            const err = new Error('The operation was aborted');
+            err.name = 'AbortError';
+            reject(err);
+          });
+        });
+      });
+
+      const timeoutRes = await checkBookmarkUrl('https://slow.example.com', { fetchFn: abortFetch, timeoutMs: 10 });
+      expect(timeoutRes).toMatchObject({
+        isDead: true,
+        statusText: 'Timeout (12s)',
+        diagnostics: {
+          headError: 'Timeout (AbortError)'
+        }
+      });
+
+      const networkErrorFetch = vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      });
+
+      const networkRes = await checkBookmarkUrl('https://nonexistent.invalid', { fetchFn: networkErrorFetch });
+      expect(networkRes).toMatchObject({
+        isDead: true,
+        statusText: 'Network / DNS Error',
+        diagnostics: {
+          headError: 'Failed to fetch',
+          getError: 'Failed to fetch'
+        }
+      });
+    });
+
+    it('treats URL as alive when CORS fails on GET but no-cors fallback succeeds', async () => {
+      const corsBlockedFetch = vi.fn(async (_url, init) => {
+        if (init.mode === 'no-cors') {
+          return makeResponse({ ok: false, status: 0 });
+        }
+        throw new TypeError('Failed to fetch');
+      });
+
+      const result = await checkBookmarkUrl('https://strict-cors.example.com', { fetchFn: corsBlockedFetch });
+
+      expect(result).toMatchObject({
+        isDead: false,
+        statusText: 'OK',
+        diagnostics: {
+          headError: 'Failed to fetch',
+          getError: 'Failed to fetch',
+          usedNoCorsFallback: true
+        }
+      });
+      expect(corsBlockedFetch).toHaveBeenCalledTimes(3);
+      expect(corsBlockedFetch.mock.calls[2][1].mode).toBe('no-cors');
+    });
+  });
+
+  describe('buildDebugExportPayload & formatDebugExportForClipboard', () => {
+    it('builds structured debug payload with diagnostics and formats Markdown + JSON for clipboard', () => {
+      const sampleItems = [
+        {
+          id: '42',
+          title: 'orōro Sushi Bar',
+          url: 'https://www.ororo.com.tr/menu',
+          folderPath: 'Mobil yer işaretleri / Menüler-Restaurant',
+          statusText: 'HTTP 404 Not Found',
+          diagnostics: {
+            headStatus: 404,
+            headError: null,
+            getStatus: 200,
+            getError: null,
+            finalUrl: 'https://www.ororo.com.tr/menu',
+            redirected: false,
+            contentType: 'text/html',
+            softAlive404: false,
+            usedNoCorsFallback: false,
+            checkedAt: '2026-11-15T00:00:00.000Z'
+          }
+        },
+        {
+          id: '43',
+          title: '',
+          url: 'https://example.com/legacy',
+          statusText: ''
+        }
+      ];
+
+      const payload = buildDebugExportPayload(sampleItems, {
+        tab: 'dead',
+        scanTimestamp: '2026-11-15T00:00:00.000Z'
+      });
+
+      expect(payload.extensionVersion).toBe('1.0.2');
+      expect(payload.tab).toBe('dead');
+      expect(payload.scanTimestamp).toBe('2026-11-15T00:00:00.000Z');
+      expect(payload.count).toBe(2);
+      expect(payload.items).toEqual([
+        {
+          id: '42',
+          title: 'orōro Sushi Bar',
+          url: 'https://www.ororo.com.tr/menu',
+          folderPath: 'Mobil yer işaretleri / Menüler-Restaurant',
+          statusText: 'HTTP 404 Not Found',
+          diagnostics: sampleItems[0].diagnostics
+        },
+        {
+          id: '43',
+          title: '(No Title)',
+          url: 'https://example.com/legacy',
+          folderPath: '',
+          statusText: 'HTTP Error / Timeout',
+          diagnostics: null
+        }
+      ]);
+
+      const formatted = formatDebugExportForClipboard(payload);
+      expect(formatted).toContain('### Bookmark Checker Debug Export (2 items)');
+      expect(formatted).toContain('- **Tab:** dead');
+      expect(formatted).toContain('- **Last Scan:** 2026-11-15T00:00:00.000Z');
+      expect(formatted).toContain('```json\n');
+      expect(formatted).toContain('"headStatus": 404');
+      expect(formatted).toContain('"url": "https://www.ororo.com.tr/menu"');
     });
   });
 });

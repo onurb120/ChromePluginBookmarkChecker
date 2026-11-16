@@ -2,12 +2,13 @@
 # Since this is a Vite project, it simply zips the contents of the 'dist' folder.
 
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 
 $ProjectRoot = (Resolve-Path "$PSScriptRoot\..").Path
 $DistDir = Join-Path $ProjectRoot "dist"
 $ZipName = "chrome-bookmark-checker.zip"
 $ZipPath = Join-Path $DistDir $ZipName
-$TempZip = Join-Path $env:TEMP $ZipName
+$TempZip = Join-Path $ProjectRoot $ZipName
 
 Write-Host "==> Preparing Chrome Extension package..." -ForegroundColor Cyan
 

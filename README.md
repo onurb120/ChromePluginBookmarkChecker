@@ -86,11 +86,10 @@ flowchart TD
     C --> D["Deduplication Engine (URL Normalization & Hash Match)"]
     C --> E["Concurrent HTTP Worker Queue"]
     E --> F["HTTP HEAD Reachability Check"]
-    F -->|"Blocked or 405"| G["Fallback HTTP GET Request"]
+    F -->|"Non-2xx / 4xx / 5xx / Error"| G["Fallback HTTP GET Request"]
     F -->|"HTTP 200-299"| H["Active / Alive"]
-    F -->|"HTTP 404 / 50x / Timeout"| I["Broken / Dead Link"]
     G --> H
-    G --> I
+    G -->|"HTTP 404 / 50x / Timeout"| I["Broken / Dead Link"]
     D --> J["Duplicate Groups"]
     H --> K["Real-time Reactive UI (Popup & Dashboard)"]
     I --> K

@@ -1,0 +1,19 @@
+#!/bin/sh
+while read local_ref local_oid remote_ref remote_oid
+do
+    if [ "$remote_ref" = "refs/heads/main" ] || [ "$remote_ref" = "refs/heads/master" ]; then
+        if [ "$local_oid" = "0000000000000000000000000000000000000000" ]; then
+            echo "[Security Guard] Deleting default branch is blocked!"
+            exit 1
+        fi
+        # Check for force push
+        if [ "$remote_oid" != "0000000000000000000000000000000000000000" ]; then
+            non_ff=$(git merge-base --is-ancestor $remote_oid $local_oid || echo "non-ff")
+            if [ "$non_ff" = "non-ff" ]; then
+                echo "[Security Guard] Force-pushing to default branch is blocked!"
+                exit 1
+            fi
+        fi
+    fi
+done
+exit 0

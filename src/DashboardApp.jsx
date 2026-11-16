@@ -1,5 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import appLogo from '../assets/icons/icon48.png';
+import {
+  checkBookmarkUrl,
+  buildDebugExportPayload,
+  formatDebugExportForClipboard,
+  extractBookmarksFromTree
+} from './utils/bookmarkUtils.js';
 
 export default function DashboardApp() {
   const [results, setResults] = useState({ deadLinks: [], duplicateLinks: [], timestamp: null });
@@ -9,40 +15,10 @@ export default function DashboardApp() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
   const [isRescanning, setIsRescanning] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+  const copyFeedbackTimerRef = useRef(null);
 
-  const checkSingleUrl = async (url) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
-    try {
-      let response;
-      try {
-        response = await fetch(url, { method: 'HEAD', signal: controller.signal, redirect: 'follow' });
-        if (!response.ok && (response.status === 405 || response.status === 403 || response.status === 400 || response.status === 503)) {
-          response = await fetch(url, { method: 'GET', signal: controller.signal, redirect: 'follow' });
-        }
-      } catch (e) {
-        if (!controller.signal.aborted) {
-          response = await fetch(url, { method: 'GET', signal: controller.signal, redirect: 'follow' });
-        } else {
-          throw e;
-        }
-      }
-      clearTimeout(timeoutId);
-      if (response.ok || response.status < 400 || response.status === 401 || response.status === 403) {
-        return { isDead: false, statusText: 'OK (Alive)' };
-      }
-      return {
-        isDead: true,
-        statusText: response.status === 404 ? 'HTTP 404 Not Found' : response.status === 410 ? 'HTTP 410 Gone' : `HTTP ${response.status}`
-      };
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        return { isDead: true, statusText: 'Timeout (12s)' };
-      }
-      return { isDead: true, statusText: 'Network / DNS Error' };
-    }
-  };
+  const checkSingleUrl = (url) => checkBookmarkUrl(url);
 
   const rescanSelected = async () => {
     if (selectedIds.size === 0 || isRescanning) return;
@@ -58,7 +34,11 @@ export default function DashboardApp() {
         if (!check.isDead) {
           resolvedCount++;
         } else {
-          updatedTypeItems.push({ ...item, statusText: check.statusText });
+          updatedTypeItems.push({
+            ...item,
+            statusText: check.statusText,
+            diagnostics: check.diagnostics || item.diagnostics || null
+          });
         }
       } else {
         updatedTypeItems.push(item);
@@ -107,7 +87,11 @@ export default function DashboardApp() {
       });
     } else {
       alert(`"${item.title || item.url}" re-scanned: ${check.statusText}`);
-      updatedTypeItems = results[type].map(i => i.id === item.id ? { ...i, statusText: check.statusText } : i);
+      updatedTypeItems = results[type].map(i =>
+        i.id === item.id
+          ? { ...i, statusText: check.statusText, diagnostics: check.diagnostics || i.diagnostics || null }
+          : i
+      );
     }
 
     const updatedResults = {
@@ -124,7 +108,46 @@ export default function DashboardApp() {
     if (typeof chrome !== 'undefined' && chrome.storage) {
       chrome.storage.local.get(['lastScanResults'], (data) => {
         if (data.lastScanResults) {
-          setResults(data.lastScanResults);
+          const storedResults = data.lastScanResults;
+          setResults(storedResults);
+
+          const duplicateLinks = storedResults.duplicateLinks || [];
+          const urlCounts = new Map();
+          duplicateLinks.forEach(item => {
+            urlCounts.set(item.url, (urlCounts.get(item.url) || 0) + 1);
+          });
+          const hasLegacySingleEntries = Array.from(urlCounts.values()).some(count => count === 1);
+
+          if (hasLegacySingleEntries && chrome.bookmarks?.getTree) {
+            chrome.bookmarks.getTree((tree) => {
+              if (chrome.runtime?.lastError || !tree || tree.length === 0) return;
+              const roots = (tree[0]?.id === '0' && Array.isArray(tree[0].children)) ? tree[0].children : tree;
+              const allBookmarks = extractBookmarksFromTree(roots);
+              const byUrl = new Map();
+              allBookmarks.forEach(bm => {
+                if (!byUrl.has(bm.url)) byUrl.set(bm.url, []);
+                byUrl.get(bm.url).push(bm);
+              });
+
+              const uniqueDupUrls = Array.from(new Set(duplicateLinks.map(item => item.url)));
+              const expandedDuplicates = [];
+              uniqueDupUrls.forEach(url => {
+                const matches = byUrl.get(url) || [];
+                if (matches.length >= 2) {
+                  matches.forEach((bm, idx) => {
+                    expandedDuplicates.push({ ...bm, isOriginal: idx === 0 });
+                  });
+                }
+              });
+
+              const updatedResults = {
+                ...storedResults,
+                duplicateLinks: expandedDuplicates
+              };
+              setResults(updatedResults);
+              chrome.storage.local.set({ lastScanResults: updatedResults });
+            });
+          }
         }
       });
     } else {
@@ -149,9 +172,42 @@ export default function DashboardApp() {
     setLastSelectedIndex(null);
   }, [activeTab]);
 
+  // Keep selectedIds synced with currently visible items (e.g. after auto-pruning resolved duplicates)
+  useEffect(() => {
+    setSelectedIds(prev => {
+      if (prev.size === 0) return prev;
+      const validIds = new Set(activeList.map(item => item.id));
+      const next = new Set([...prev].filter(id => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [activeList]);
+
+  const pruneSingleDuplicates = (list) => {
+    const counts = new Map();
+    list.forEach(item => counts.set(item.url, (counts.get(item.url) || 0) + 1));
+    return list.filter(item => (counts.get(item.url) || 0) > 1);
+  };
+
+  // On the Duplicates tab, Select All skips the first occurrence of each URL to avoid deleting every copy
+  const selectableIdsForSelectAll = (() => {
+    if (activeTab === 'dead') {
+      return activeList.map(item => item.id);
+    }
+    const seenUrls = new Set();
+    const ids = [];
+    activeList.forEach(item => {
+      if (seenUrls.has(item.url)) {
+        ids.push(item.id);
+      } else {
+        seenUrls.add(item.url);
+      }
+    });
+    return ids;
+  })();
+
   const toggleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(new Set(activeList.map(item => item.id)));
+      setSelectedIds(new Set(selectableIdsForSelectAll));
     } else {
       setSelectedIds(new Set());
     }
@@ -181,61 +237,130 @@ export default function DashboardApp() {
     setLastSelectedIndex(index);
   };
 
+  const applyRemovedBookmarkIds = (idsToRemoveSet, targetType) => {
+    setResults(prev => {
+      const filtered = prev[targetType].filter(item => !idsToRemoveSet.has(item.id));
+      const nextTypeItems = targetType === 'duplicateLinks' ? pruneSingleDuplicates(filtered) : filtered;
+      const updated = {
+        ...prev,
+        [targetType]: nextTypeItems
+      };
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.local.set({ lastScanResults: updated });
+      }
+      return updated;
+    });
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      idsToRemoveSet.forEach(id => next.delete(id));
+      return next;
+    });
+  };
+
   const deleteSelected = () => {
     if (selectedIds.size === 0) return;
     
     if (window.confirm(`Are you sure you want to permanently delete ${selectedIds.size} bookmarks?`)) {
       const type = activeTab === 'dead' ? 'deadLinks' : 'duplicateLinks';
+      const idsToDelete = new Set(selectedIds);
       
       if (typeof chrome !== 'undefined' && chrome.bookmarks) {
         let deleted = 0;
-        selectedIds.forEach(id => {
+        idsToDelete.forEach(id => {
           chrome.bookmarks.remove(id, () => {
             deleted++;
-            if (deleted === selectedIds.size) {
-              setResults(prev => ({
-                ...prev,
-                [type]: prev[type].filter(item => !selectedIds.has(item.id))
-              }));
-              setSelectedIds(new Set());
+            if (deleted === idsToDelete.size) {
+              applyRemovedBookmarkIds(idsToDelete, type);
             }
           });
         });
       } else {
-        setResults(prev => ({
-          ...prev,
-          [type]: prev[type].filter(item => !selectedIds.has(item.id))
-        }));
-        setSelectedIds(new Set());
+        applyRemovedBookmarkIds(idsToDelete, type);
       }
     }
   };
 
   const deleteSingle = (id) => {
     const type = activeTab === 'dead' ? 'deadLinks' : 'duplicateLinks';
+    const idsToDelete = new Set([id]);
     if (typeof chrome !== 'undefined' && chrome.bookmarks) {
       chrome.bookmarks.remove(id, () => {
-        setResults(prev => ({
-          ...prev,
-          [type]: prev[type].filter(item => item.id !== id)
-        }));
-        const newSelected = new Set(selectedIds);
-        newSelected.delete(id);
-        setSelectedIds(newSelected);
+        applyRemovedBookmarkIds(idsToDelete, type);
       });
     } else {
-      setResults(prev => ({
-        ...prev,
-        [type]: prev[type].filter(item => item.id !== id)
-      }));
-      const newSelected = new Set(selectedIds);
-      newSelected.delete(id);
-      setSelectedIds(newSelected);
+      applyRemovedBookmarkIds(idsToDelete, type);
     }
   };
   
-  const allSelected = activeList.length > 0 && selectedIds.size === activeList.length;
-  const someSelected = selectedIds.size > 0 && selectedIds.size < activeList.length;
+  const getSelectedItems = () => activeList.filter(item => selectedIds.has(item.id));
+
+  const buildSelectedDebugPayload = () =>
+    buildDebugExportPayload(getSelectedItems(), {
+      tab: activeTab,
+      scanTimestamp: results.timestamp
+    });
+
+  const copySelectedDebug = async () => {
+    if (selectedIds.size === 0 || isRescanning) return;
+    const text = formatDebugExportForClipboard(buildSelectedDebugPayload());
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+
+    if (copyFeedbackTimerRef.current) {
+      clearTimeout(copyFeedbackTimerRef.current);
+    }
+    setCopyFeedback(true);
+    copyFeedbackTimerRef.current = setTimeout(() => {
+      setCopyFeedback(false);
+    }, 2000);
+  };
+
+  const exportSelectedJson = () => {
+    if (selectedIds.size === 0 || isRescanning) return;
+    const payload = buildSelectedDebugPayload();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+    a.href = url;
+    a.download = `bookmark-debug-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const allSelected = selectableIdsForSelectAll.length > 0 && selectableIdsForSelectAll.every(id => selectedIds.has(id));
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const duplicateMetaMap = new Map();
+  if (activeTab === 'duplicates') {
+    const urlTotals = new Map();
+    activeList.forEach(item => {
+      urlTotals.set(item.url, (urlTotals.get(item.url) || 0) + 1);
+    });
+    const urlCurrentIndex = new Map();
+    activeList.forEach(item => {
+      const copyIndex = (urlCurrentIndex.get(item.url) || 0) + 1;
+      urlCurrentIndex.set(item.url, copyIndex);
+      duplicateMetaMap.set(item.id, {
+        copyIndex,
+        groupTotal: urlTotals.get(item.url)
+      });
+    });
+  }
 
   const handleClose = () => {
     try {
@@ -341,7 +466,7 @@ export default function DashboardApp() {
               </span>
             </div>
             
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
               <button 
                 disabled={selectedIds.size === 0 || isRescanning}
                 onClick={rescanSelected}
@@ -350,6 +475,26 @@ export default function DashboardApp() {
               >
                 <span className={`material-symbols-outlined text-[16px] text-primary ${isRescanning ? 'animate-spin' : ''}`}>refresh</span>
                 <span>{isRescanning ? 'Re-scanning...' : `Re-scan (${selectedIds.size})`}</span>
+              </button>
+              <button 
+                disabled={selectedIds.size === 0 || isRescanning}
+                onClick={copySelectedDebug}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-outline-variant/40 bg-surface-container-high hover:bg-surface-bright text-on-surface text-[13px] font-semibold shadow-sm transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                title="Copy selected URLs & diagnostics to clipboard for debugging"
+              >
+                <span className={`material-symbols-outlined text-[16px] ${copyFeedback ? 'text-emerald-400' : 'text-tertiary'}`}>
+                  {copyFeedback ? 'check' : 'content_copy'}
+                </span>
+                <span>{copyFeedback ? 'Copied!' : `Copy Debug (${selectedIds.size})`}</span>
+              </button>
+              <button 
+                disabled={selectedIds.size === 0 || isRescanning}
+                onClick={exportSelectedJson}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-outline-variant/40 bg-surface-container-high hover:bg-surface-bright text-on-surface text-[13px] font-semibold shadow-sm transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                title="Download selected URLs & diagnostics as JSON"
+              >
+                <span className="material-symbols-outlined text-[16px] text-secondary">download</span>
+                <span>Export JSON ({selectedIds.size})</span>
               </button>
               <button 
                 disabled={selectedIds.size === 0 || isRescanning}
@@ -371,8 +516,25 @@ export default function DashboardApp() {
             ) : (
               activeList.map((item, index) => {
                 const isSelected = selectedIds.has(item.id);
+                const dupMeta = activeTab === 'duplicates' ? duplicateMetaMap.get(item.id) : null;
+                const isPrimaryDuplicate = dupMeta?.copyIndex === 1;
+                const isNewGroup = activeTab === 'duplicates' && index > 0 && activeList[index - 1].url !== item.url;
+                const badgeClasses = activeTab === 'dead'
+                  ? 'bg-error-container/60 border-error/30 text-error'
+                  : isPrimaryDuplicate
+                    ? 'bg-primary/10 border-primary/30 text-primary'
+                    : 'bg-surface-container border-outline-variant/30 text-tertiary';
+                const badgeIcon = activeTab === 'dead'
+                  ? 'error'
+                  : isPrimaryDuplicate
+                    ? 'bookmark'
+                    : 'content_copy';
+                const badgeText = activeTab === 'dead'
+                  ? (item.statusText || 'HTTP Error / Timeout')
+                  : `Location ${dupMeta?.copyIndex || 1} of ${dupMeta?.groupTotal || 2} • ${isPrimaryDuplicate ? 'Primary' : 'Duplicate'}`;
+
                 return (
-                  <article key={item.id} className={`p-4 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 group cursor-pointer ${isSelected ? 'bg-primary/5' : 'hover:bg-surface-container/60'}`} onClick={(e) => {
+                  <article key={item.id} className={`p-4 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 group cursor-pointer ${isNewGroup ? 'border-t-2 border-t-outline-variant/50' : ''} ${isSelected ? 'bg-primary/5' : 'hover:bg-surface-container/60'}`} onClick={(e) => {
                     // if they didn't click on the checkbox or an action button, toggle selection
                     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A' && e.target.tagName !== 'SPAN') {
                       handleSelect({ target: { checked: !isSelected }, nativeEvent: e.nativeEvent }, item.id, index);
@@ -390,9 +552,9 @@ export default function DashboardApp() {
                           <h3 className="text-[15px] text-on-surface font-semibold group-hover:text-primary transition-colors truncate" title={item.title}>
                             {item.title || '(No Title)'}
                           </h3>
-                          <span className={`inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-md border ${activeTab === 'dead' ? 'bg-error-container/60 border-error/30 text-error' : 'bg-surface-container border-outline-variant/30 text-on-surface-variant'}`}>
-                            <span className="material-symbols-outlined text-[12px]">{activeTab === 'dead' ? 'error' : 'content_copy'}</span>
-                            <span>{activeTab === 'dead' ? (item.statusText || 'HTTP Error / Timeout') : 'Duplicate URL'}</span>
+                          <span className={`inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-md border ${badgeClasses}`}>
+                            <span className="material-symbols-outlined text-[12px]">{badgeIcon}</span>
+                            <span>{badgeText}</span>
                           </span>
                         </div>
                         <p className="font-mono text-[11px] text-outline mt-1 truncate max-w-xl" title={item.url}>

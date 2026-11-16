@@ -1,7 +1,7 @@
 import {
-  classifyHttpStatus,
-  classifyError,
-  extractBookmarksFromTree
+  checkBookmarkUrl,
+  extractBookmarksFromTree,
+  findDuplicates
 } from './utils/bookmarkUtils.js';
 
 // Background Service Worker
@@ -69,32 +69,7 @@ async function getBookmarksFromFolders(folderIds) {
 
 // Enhanced HTTP validation check
 async function checkUrl(url) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
-  
-  try {
-    let response;
-    try {
-      response = await fetch(url, { method: 'HEAD', signal: controller.signal, redirect: 'follow' });
-      // If HEAD returns 405 (Method Not Allowed), 403 (WAF block), 400, or 503, fallback to GET
-      if (!response.ok && (response.status === 405 || response.status === 403 || response.status === 400 || response.status === 503)) {
-        response = await fetch(url, { method: 'GET', signal: controller.signal, redirect: 'follow' });
-      }
-    } catch (headErr) {
-      if (!controller.signal.aborted) {
-        // Fallback to GET on network/CORS issues with HEAD
-        response = await fetch(url, { method: 'GET', signal: controller.signal, redirect: 'follow' });
-      } else {
-        throw headErr;
-      }
-    }
-    
-    clearTimeout(timeoutId);
-    return classifyHttpStatus(response.status);
-  } catch (error) {
-    clearTimeout(timeoutId);
-    return classifyError(error);
-  }
+  return checkBookmarkUrl(url);
 }
 
 let activeScanState = null;
@@ -130,9 +105,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         let dead = 0;
         let duplicates = 0;
         
-        const seenUrls = new Set();
+        const seenUrls = new Map();
+        const duplicatedUrls = new Set();
         const deadLinks = [];
-        const duplicateLinks = [];
+        let duplicateLinks = [];
         
         activeScanState = { total, processed, dead, duplicates };
 
@@ -156,17 +132,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await Promise.all(batch.map(async (bookmark) => {
             // Check Duplicate
             if (seenUrls.has(bookmark.url)) {
-              duplicates++;
-              duplicateLinks.push(bookmark);
+              if (!duplicatedUrls.has(bookmark.url)) {
+                duplicatedUrls.add(bookmark.url);
+                duplicateLinks.push({ ...seenUrls.get(bookmark.url), isOriginal: true });
+              }
+              duplicateLinks.push({ ...bookmark, isOriginal: false });
+              duplicates = duplicateLinks.length;
               return;
             }
-            seenUrls.add(bookmark.url);
+            seenUrls.set(bookmark.url, bookmark);
             
             // Check Dead Link
             const check = await checkUrl(bookmark.url);
             if (check.isDead) {
               dead++;
-              deadLinks.push({ ...bookmark, statusText: check.statusText });
+              deadLinks.push({
+                ...bookmark,
+                statusText: check.statusText,
+                diagnostics: check.diagnostics || null
+              });
             }
           }));
           
@@ -190,6 +174,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           chrome.runtime.sendMessage({ action: 'SCAN_CANCELLED' });
           return;
         }
+
+        // Group all duplicate locations consecutively by URL
+        duplicateLinks = findDuplicates(duplicateLinks).duplicates;
 
         console.log('Scan complete.', { deadLinks, duplicateLinks });
         

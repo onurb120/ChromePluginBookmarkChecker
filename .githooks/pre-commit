@@ -1,0 +1,23 @@
+#!/bin/sh
+# 1. Block staged files matching forbidden credential patterns
+FORBIDDEN_FILES=$(git diff --cached --name-only | grep -E "((\.env|\.env\..*)$|\.pem$|\.key$|\.pfx$|config\.local\.json$|credentials\.json$|.*token_cache.*)")
+if [ -n "$FORBIDDEN_FILES" ]; then
+    echo "================================================================="
+    echo "[PRE-COMMIT SECURITY GUARD] COMMIT BLOCKED!"
+    echo "Sensitive credential or local environment file staged for commit:"
+    echo "$FORBIDDEN_FILES"
+    echo "Run 'git reset HEAD <file>' to unstage."
+    echo "================================================================="
+    exit 1
+fi
+
+# 2. Block staged diffs matching common secret signatures or private keys
+LEAKED_SECRET=$(git diff --cached | grep "^+" | grep -E "(ghp_[0-9a-zA-Z]{36}|gho_[0-9a-zA-Z]{36}|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH|EC|DSA|PGP) PRIVATE KEY)")
+if [ -n "$LEAKED_SECRET" ]; then
+    echo "================================================================="
+    echo "[PRE-COMMIT SECURITY GUARD] COMMIT BLOCKED!"
+    echo "High-entropy API token or Private Key detected in staged diff!"
+    echo "================================================================="
+    exit 1
+fi
+exit 0
