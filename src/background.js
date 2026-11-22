@@ -13,7 +13,7 @@ import {
 const MAX_BACKUPS = 5;
 const SCAN_CONCURRENCY = 6;
 const SCAN_MAX_PER_HOST = 2;
-const RETRY_CONCURRENCY = 2;
+const RETRY_CONCURRENCY = 4;
 const RETRY_MAX_PER_HOST = 1;
 const PROGRESS_THROTTLE_MS = 150;
 const KEEPALIVE_INTERVAL_MS = 20000;
@@ -312,8 +312,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             (item) =>
               checkBookmarkUrl(item.url, {
                 skipHead: true,
-                getTimeoutMs: 20000,
-                noCorsTimeoutMs: 8000,
+                getTimeoutMs: 15000,
+                noCorsTimeoutMs: 6000,
                 attempt: 2
               }),
             {

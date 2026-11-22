@@ -20,9 +20,9 @@ const NON_DEEP_PATH_REGEX =
 const LOCALE_HOME_REGEX = /^[a-z]{2}(?:-[a-z]{2})?$/i;
 
 const BOT_CHALLENGE_TITLE_REGEX =
-  /<title[^>]*>\s*(?:just a moment|attention required!?\s*\|\s*cloudflare|ddos-guard|checking your browser)/i;
+  /<title[^>]*>\s*(?:just a moment|attention required!?\s*\|\s*cloudflare|ddos-guard|checking your browser|the url you requested has been blocked|web page blocked|request rejected|access denied|sucuri website firewall)/i;
 const BOT_CHALLENGE_MARKER_REGEX =
-  /cf-browser-verification|\/cdn-cgi\/challenge-platform/i;
+  /cf-browser-verification|\/cdn-cgi\/challenge-platform|_Incapsula_Resource|incapsula\s+incident\s+id|web\s+page\s+blocked!|the\s+url\s+you\s+requested\s+has\s+been\s+blocked|the\s+requested\s+url\s+was\s+rejected|sucuri\s+website\s+firewall|attack\s+id\s*:\s*\d+/i;
 
 const VALID_CATEGORIES = new Set([
   '404',
@@ -261,7 +261,7 @@ export function isBotChallengeResponse(response, html = '') {
     return true;
   }
   const status = response?.status;
-  if ((status === 503 || status === 403) && typeof html === 'string' && html.length > 0) {
+  if ((status === 500 || status === 503 || status === 403) && typeof html === 'string' && html.length > 0) {
     return BOT_CHALLENGE_TITLE_REGEX.test(html) || BOT_CHALLENGE_MARKER_REGEX.test(html);
   }
   return false;
@@ -703,7 +703,7 @@ export async function checkBookmarkUrl(url, options = {}) {
         } catch {
           // Ignore body read error and fall back to HTTP status classification
         }
-      } else if (res.status === 503) {
+      } else if (res.status === 500 || res.status === 503) {
         if (isBotChallengeResponse(res)) {
           res.body?.cancel?.().catch(() => {});
           diagnostics.botChallengeDetected = true;
@@ -743,7 +743,13 @@ export async function checkBookmarkUrl(url, options = {}) {
       : (status >= 500 && status < 600)
         ? '5xx'
         : 'other-http';
-    const isRetryable = !isLocal && status >= 500 && status < 600;
+    const headWasServerError =
+      typeof diagnostics.headStatus === 'number' &&
+      diagnostics.headStatus >= 500 &&
+      diagnostics.headStatus < 600;
+    const isRetryable =
+      !isLocal &&
+      ((status >= 500 && status < 600) || (status === 404 && headWasServerError));
 
     diagnostics.durationMs = Date.now() - startTime;
     return {
@@ -783,9 +789,6 @@ export async function checkBookmarkUrl(url, options = {}) {
       return finishAlive('alive');
     } catch (noCorsErr) {
       diagnostics.noCorsError = formatFetchError(noCorsErr);
-      if (noCorsErr?.name === 'AbortError') {
-        lastError = noCorsErr;
-      }
     }
   }
 
