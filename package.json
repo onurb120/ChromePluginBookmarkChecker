@@ -22,20 +22,20 @@
   },
   "homepage": "https://github.com/onurb120/ChromePluginBookmarkChecker#readme",
   "dependencies": {
-    "lucide-react": "^1.47.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "lucide-react": "^1.76.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.33",
-    "@tailwindcss/postcss": "^4.3.3",
-    "@vitejs/plugin-react": "^6.1.1",
-    "autoprefixer": "^10.6.1",
+    "@tailwindcss/postcss": "^4.3.5",
+    "@vitejs/plugin-react": "^6.3.0",
+    "autoprefixer": "^10.6.2",
     "jimp": "^1.6.1",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.3",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "overrides": {
     "zod": "^4.6.6"
