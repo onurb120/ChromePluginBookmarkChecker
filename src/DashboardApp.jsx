@@ -188,7 +188,7 @@ export default function DashboardApp() {
   const shouldPersistRef = useRef(false);
 
   const extensionVersion =
-    (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.version) || '1.1.0';
+    (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.version) || '1.1.1';
 
   const showToast = (message, tone = 'info') => {
     if (toastTimerRef.current) {

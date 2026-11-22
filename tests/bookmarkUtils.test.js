@@ -197,6 +197,20 @@ describe('bookmarkUtils', () => {
           '<html><head><title>503 Service Unavailable</title></head><body>Server down</body></html>'
         )
       ).toBe(false);
+
+      expect(
+        isBotChallengeResponse(
+          { status: 500, headers: { get: () => null } },
+          '<html><head><title> The URL you requested has been blocked </title></head><body><h3>Web Page Blocked!</h3><p>Attack ID: 20000018</p></body></html>'
+        )
+      ).toBe(true);
+
+      expect(
+        isBotChallengeResponse(
+          { status: 500, headers: { get: () => null } },
+          '<html><head><title>500 Internal Server Error</title></head><body>Database crash</body></html>'
+        )
+      ).toBe(false);
     });
 
     it('reads bounded bytes from ReadableStream and cancels the reader', async () => {
@@ -644,6 +658,71 @@ describe('bookmarkUtils', () => {
       expect(result.diagnostics.botChallengeDetected).toBe(true);
     });
 
+    it('treats HTTP 500 WAF block pages as alive while keeping real HTTP 500 errors dead', async () => {
+      const waf500Fetch = vi.fn(async () =>
+        makeResponse({
+          ok: false,
+          status: 500,
+          headers: { 'content-type': 'text/html' },
+          text: '<html><head><title> The URL you requested has been blocked </title></head><body><h3>Web Page Blocked!</h3><p>Attack ID: 20000018</p></body></html>'
+        })
+      );
+
+      const wafResult = await checkBookmarkUrl('https://www.reginamaria.ro/spitale/spitalul-baneasa', {
+        fetchFn: waf500Fetch
+      });
+      expect(wafResult).toMatchObject({ isDead: false, statusText: 'OK' });
+      expect(wafResult.diagnostics.botChallengeDetected).toBe(true);
+
+      const real500Fetch = vi.fn(async () =>
+        makeResponse({
+          ok: false,
+          status: 500,
+          headers: { 'content-type': 'text/html' },
+          text: '<html><head><title>500 Internal Server Error</title></head><body>Unhandled exception</body></html>'
+        })
+      );
+
+      const realResult = await checkBookmarkUrl('https://broken-app.example.com/crash', {
+        fetchFn: real500Fetch
+      });
+      expect(realResult).toMatchObject({
+        isDead: true,
+        statusText: 'HTTP 500',
+        category: '5xx',
+        isRetryable: true
+      });
+      expect(realResult.diagnostics.botChallengeDetected).toBe(false);
+    });
+
+    it('marks contradictory HEAD 5xx + GET 404 responses as retryable for Pass 2', async () => {
+      const fetchMock = vi.fn(async (_url, init) => {
+        if (init.method === 'HEAD') {
+          return makeResponse({ ok: false, status: 503, headers: { 'content-type': 'text/html' } });
+        }
+        return makeResponse({
+          ok: false,
+          status: 404,
+          headers: { 'content-type': 'text/html' },
+          text: '<html><head><title>404 Not Found</title></head><body>Not Found</body></html>'
+        });
+      });
+
+      const result = await checkBookmarkUrl('https://cdn-flaky.example.com/page', {
+        fetchFn: fetchMock
+      });
+      expect(result).toMatchObject({
+        isDead: true,
+        statusText: 'HTTP 404 Not Found',
+        category: '404',
+        isRetryable: true,
+        diagnostics: {
+          headStatus: 503,
+          getStatus: 404
+        }
+      });
+    });
+
     it('marks genuine 404 responses (English and Turkish) as dead', async () => {
       const fetchEnglish404 = vi.fn(async () =>
         makeResponse({
@@ -728,6 +807,32 @@ describe('bookmarkUtils', () => {
         diagnostics: {
           headError: 'Failed to fetch',
           getError: 'Failed to fetch'
+        }
+      });
+    });
+
+    it('preserves GET Network / DNS Error when no-cors fallback times out', async () => {
+      const fetchMock = vi.fn(async (_url, init) => {
+        if (init.mode === 'no-cors') {
+          const err = new Error('no-cors aborted');
+          err.name = 'AbortError';
+          throw err;
+        }
+        throw new TypeError('Failed to fetch');
+      });
+
+      const result = await checkBookmarkUrl('https://dead-origin.example.com/', {
+        fetchFn: fetchMock
+      });
+      expect(result).toMatchObject({
+        isDead: true,
+        statusText: 'Network / DNS Error',
+        category: 'network',
+        isRetryable: true,
+        diagnostics: {
+          headError: 'Failed to fetch',
+          getError: 'Failed to fetch',
+          noCorsError: 'Timeout (AbortError)'
         }
       });
     });
@@ -952,7 +1057,7 @@ describe('bookmarkUtils', () => {
         scanTimestamp: '2026-11-15T00:00:00.000Z'
       });
 
-      expect(payload.extensionVersion).toBe('1.1.0');
+      expect(payload.extensionVersion).toBe('1.1.1');
       expect(payload.tab).toBe('dead');
       expect(payload.scanTimestamp).toBe('2026-11-15T00:00:00.000Z');
       expect(payload.count).toBe(2);
