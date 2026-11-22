@@ -1012,7 +1012,7 @@ export async function runWithConcurrencyPool(
  * @param {{ tab?: string, scanTimestamp?: string|null, extensionVersion?: string }} [options]
  * @returns {Object}
  */
-export function buildDebugExportPayload(items, { tab = 'dead', scanTimestamp = null, extensionVersion = '1.1.0' } = {}) {
+export function buildDebugExportPayload(items, { tab = 'dead', scanTimestamp = null, extensionVersion = '1.1.1' } = {}) {
   const safeItems = Array.isArray(items) ? items : [];
   return {
     exportedAt: new Date().toISOString(),

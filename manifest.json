@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Chrome Bookmark Checker",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Scan, validate, and clean up your Chrome bookmarks for broken links and duplicates.",
   "permissions": [
     "bookmarks",

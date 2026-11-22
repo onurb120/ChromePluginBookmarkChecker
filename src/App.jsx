@@ -405,7 +405,7 @@ function App() {
     0
   );
   const extensionVersion =
-    (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.version) || '1.1.0';
+    (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.version) || '1.1.1';
 
   return (
     <div className="flex flex-col h-full bg-surface text-on-surface font-sans relative">

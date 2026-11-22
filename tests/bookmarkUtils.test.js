@@ -1057,7 +1057,7 @@ describe('bookmarkUtils', () => {
         scanTimestamp: '2026-11-15T00:00:00.000Z'
       });
 
-      expect(payload.extensionVersion).toBe('1.1.0');
+      expect(payload.extensionVersion).toBe('1.1.1');
       expect(payload.tab).toBe('dead');
       expect(payload.scanTimestamp).toBe('2026-11-15T00:00:00.000Z');
       expect(payload.count).toBe(2);
